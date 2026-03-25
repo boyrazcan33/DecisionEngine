@@ -7,6 +7,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 
+/**
+ * I am aware that a simple try-catch in the controller would be enough for a single endpoint.
+ * However, I implemented this GlobalExceptionHandler to follow best practices
+ * and keep the architecture clean and scalable for future additions.
+ */
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
