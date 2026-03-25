@@ -1,0 +1,12 @@
+{
+  "name": "decision-engine-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "sass": "^1.69.0"
+  }
+}

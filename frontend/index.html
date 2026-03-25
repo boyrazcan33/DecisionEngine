@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inbank Decision Engine</title>
+    <link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="card__header">
+            <h1>Loan Decision Engine</h1>
+            <p>Fill in the details to get a loan decision</p>
+        </div>
+
+        <form id="loan-form" class="form">
+            <div class="form__group">
+                <label for="personalCode">Personal Code</label>
+                <input
+                        type="text"
+                        id="personalCode"
+                        placeholder="e.g. 49002010976"
+                        required
+                />
+            </div>
+
+            <div class="form__group">
+                <label for="loanAmount">Loan Amount (€)</label>
+                <input
+                        type="number"
+                        id="loanAmount"
+                        min="2000"
+                        max="10000"
+                        placeholder="2000 - 10000"
+                        required
+                />
+            </div>
+
+            <div class="form__group">
+                <label for="loanPeriod">Loan Period (months)</label>
+                <input
+                        type="number"
+                        id="loanPeriod"
+                        min="12"
+                        max="60"
+                        placeholder="12 - 60"
+                        required
+                />
+            </div>
+
+            <button type="submit" class="btn">Get Decision</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+</div>
+<script type="module" src="dist/main.js"></script>
+</body>
+</html>
