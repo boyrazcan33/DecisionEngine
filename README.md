@@ -223,8 +223,12 @@ If the applicant has existing debt, the request is rejected immediately.
 
 ## What I Would Improve
 
+I hope the person who designed this assignment is aware of the ambiguity around the requested period. Following the assignment's core directive — *"the maximum sum, regardless of the person requested loan amount"* — naturally leads to an algorithm where the requested period becomes irrelevant, turning this into a purely algorithmic exercise. If a more customer-focused approach was intended, the assignment should explicitly define the role of the requested period in the decision logic.
+
 I would improve the depth of data management and the environment standards.
 
 Currently, the assignment relies on a very small hardcoded dataset that does not fully test a candidate's data handling capabilities. I would suggest providing a larger realistic fake dataset (e.g. an SQL dump or CSV) that candidates must integrate into a database. This would allow the company to evaluate SQL proficiency, indexing strategies, and the ability to handle data at a more realistic scale.
 
 Additionally, while Docker is an industry standard today, it is not required in the current task. I would improve this by requiring the project to be delivered as a containerized monorepo including frontend, backend, and database. This would better demonstrate the candidate's ability to manage production-ready environments and modern development workflows.
+
+THANKS :)
