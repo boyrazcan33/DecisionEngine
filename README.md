@@ -4,6 +4,99 @@ A loan decision engine that evaluates loan applications and returns the maximum 
 
 ---
 
+## ⚠️ Before Reviewing the Code — Read This First
+
+If the algorithm seems unusual because it does not start from the customer's requested period, or because it always maximizes the loan amount across all periods — this is intentional and explained below.
+
+A reasonable interpretation of the assignment might lead to the following approach:
+
+> *"If a suitable loan amount is not found within the selected period, the decision engine should also try to find a new suitable period."*
+
+From this sentence, one could argue: first try the requested period, find the maximum amount there, and only extend the period if no suitable amount is found.
+
+For example, if the credit modifier is 100 and the customer requests 20 months:
+
+```
+(100 / 2000) * 20 = 1.0 → approved → return €2000 at 20 months
+```
+
+This looks correct at first glance — a suitable amount was found within the selected period, so the engine stops.
+
+But this directly conflicts with the assignment's core directive:
+
+> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
+
+Returning €2000 at 20 months means we are **not** returning the maximum sum — the same customer qualifies for €6000 at 60 months. The word "regardless" is used explicitly for the loan amount, but the assignment **never** says "respect the requested period" or "keep the period fixed." It only says to try a new period when no suitable amount is found — it **does not** say to stop maximizing when one is found.
+
+Keeping the period fixed when a higher amount is achievable would directly violate the "maximum sum" requirement. The engine therefore always evaluates the full potential across all available periods to return the true maximum.
+
+---
+
+## Thought Process
+
+**Core algorithm decision**
+
+The assignment states:
+> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
+
+And the scoring rule is:
+> *"If the result is larger or equal than 1 then we would approve this sum."*
+
+A naive implementation would stop as soon as the score hits 1. For example, a customer with modifier 100 requests €4000 for 12 months:
+```
+(100 / 4000) * 12 = 0.3 → score < 1 → rejected
+```
+
+A common next step would be to loop through periods or amounts until score hits 1:
+- €2000 over 20 months: `(100 / 2000) * 20 = 1.0` → approved, return €2000, 20 months
+- or €4000 over 40 months: `(100 / 4000) * 40 = 1.0` → approved, return €4000, 40 months
+
+Both are technically correct but both violate the assignment's core requirement. The assignment explicitly states:
+> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
+
+Even a score of 1.25 is not enough to stop. For example, a customer with modifier 100 requests €2000 for 25 months:
+```
+(100 / 2000) * 25 = 1.25 → score >= 1 → approved → return €2000, 25 months
+```
+
+This is technically approved but still wrong — the customer could have received more. The engine must always find the **maximum**, not just any approvable amount.
+
+The scoring formula can be simplified algebraically:
+```
+(modifier / amount) * period >= 1
+→ amount <= modifier * period
+```
+
+This means the maximum approvable amount for any given period is `modifier * period`. To maximize the amount, we maximize the period — always using 60 months (MAX_PERIOD).
+
+**The engine therefore always calculates the maximum potential at 60 months, regardless of what the customer requested:**
+
+1. **Full potential:** Always calculate `modifier * 60`
+2. **Cap check:** If the result exceeds €10000, apply the cap and find the shortest period to reach €10000 — better for the customer (less time in debt) and the bank (faster return)
+3. **Optimum:** If the result is between €2000–€10000, return that amount at 60 months
+4. **Floor check:** If even 60 months yields less than €2000, reject
+
+**Why not use the formula directly to compute the shortest period mathematically (O(1))?**
+
+The formula `ceil(10000 / modifier)` would give the shortest period in one step. However, this requires a division operation and a `double` cast. In banking systems, floating-point arithmetic (`double`, `float`) is strictly avoided due to precision loss — `0.1 + 0.2 = 0.30000000000000004` in binary. The correct approach requires `BigDecimal` with explicit rounding strategies, which adds complexity and reduces readability. The `for` loop operates entirely on `int` values, is mathematically safe, readable to non-engineers, and runs in microseconds — making it the right trade-off.
+
+**Why Vanilla TypeScript instead of a framework?**
+The task required a simple form with a single API call. Introducing a framework like Vue.js or Angular would have been over-engineering for this scope. Vanilla TypeScript keeps the frontend minimal, readable, and appropriate for the problem size.
+
+**Why a mono repo?**
+Backend and frontend are part of the same project and share the same lifecycle. Keeping them in a single repository makes it easier to run, maintain, and review together — especially with Docker Compose orchestrating both services.
+
+**Why Global Exception Handler?**
+Although the current scope only has one endpoint, `@ControllerAdvice` keeps the architecture flexible. As the application grows with new endpoints, all exception handling stays centralized in one place rather than scattered across controllers.
+
+**Why unit tests only on the service layer?**
+All decision logic is contained within `DecisionService`. There was no meaningful logic on the frontend worth unit testing.
+
+**Two-layer validation**
+Frontend enforces `min`/`max` constraints via HTML attributes for better UX. Backend independently validates all inputs and rejects anything out of range — the API protects itself regardless of the client.
+
+---
+
 ## Project Structure
 ```
 decision-engine/
@@ -126,71 +219,6 @@ credit score = (credit modifier / loan amount) * loan period
 ```
 
 If the applicant has existing debt, the request is rejected immediately.
-
----
-
-## Thought Process
-
-**Core algorithm decision**
-
-The assignment states:
-> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
-
-And the scoring rule is:
-> *"If the result is larger or equal than 1 then we would approve this sum."*
-
-A naive implementation would stop as soon as the score hits 1. For example, a customer with modifier 100 requests €4000 for 12 months:
-```
-(100 / 4000) * 12 = 0.3 → score < 1 → rejected
-```
-
-A common next step would be to loop through periods or amounts until score hits 1:
-- €2000 over 20 months: `(100 / 2000) * 20 = 1.0` → approved, return €2000, 20 months
-- or €4000 over 40 months: `(100 / 4000) * 40 = 1.0` → approved, return €4000, 40 months
-
-Both are technically correct but both violate the assignment's core requirement. The assignment explicitly states:
-> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
-
-Even a score of 1.25 is not enough to stop. For example, a customer with modifier 100 requests €2000 for 25 months:
-```
-(100 / 2000) * 25 = 1.25 → score >= 1 → approved → return €2000, 25 months
-```
-
-This is technically approved but still wrong — the customer could have received more. The engine must always find the **maximum**, not just any approvable amount.
-
-The scoring formula can be simplified algebraically:
-```
-(modifier / amount) * period >= 1
-→ amount <= modifier * period
-```
-
-This means the maximum approvable amount for any given period is `modifier * period`. To maximize the amount, we maximize the period — always using 60 months (MAX_PERIOD).
-
-**The engine therefore always calculates the maximum potential at 60 months, regardless of what the customer requested:**
-
-1. **Full potential:** Always calculate `modifier * 60`
-2. **Cap check:** If the result exceeds €10000, apply the cap and find the shortest period to reach €10000 — better for the customer (less time in debt) and the bank (faster return)
-3. **Optimum:** If the result is between €2000–€10000, return that amount at 60 months
-4. **Floor check:** If even 60 months yields less than €2000, reject
-
-**Why not use the formula directly to compute the shortest period mathematically (O(1))?**
-
-The formula `ceil(10000 / modifier)` would give the shortest period in one step. However, this requires a division operation and a `double` cast. In banking systems, floating-point arithmetic (`double`, `float`) is strictly avoided due to precision loss — `0.1 + 0.2 = 0.30000000000000004` in binary. The correct approach requires `BigDecimal` with explicit rounding strategies, which adds complexity and reduces readability. The `for` loop operates entirely on `int` values, is mathematically safe, readable to non-engineers, and runs in microseconds — making it the right trade-off.
-
-**Why Vanilla TypeScript instead of a framework?**
-The task required a simple form with a single API call. Introducing a framework like Vue.js or Angular would have been over-engineering for this scope. Vanilla TypeScript keeps the frontend minimal, readable, and appropriate for the problem size.
-
-**Why a mono repo?**
-Backend and frontend are part of the same project and share the same lifecycle. Keeping them in a single repository makes it easier to run, maintain, and review together — especially with Docker Compose orchestrating both services.
-
-**Why Global Exception Handler?**
-Although the current scope only has one endpoint, `@ControllerAdvice` keeps the architecture flexible. As the application grows with new endpoints, all exception handling stays centralized in one place rather than scattered across controllers.
-
-**Why unit tests only on the service layer?**
-All decision logic is contained within `DecisionService`. There was no meaningful logic on the frontend worth unit testing.
-
-**Two-layer validation**
-Frontend enforces `min`/`max` constraints via HTML attributes for better UX. Backend independently validates all inputs and rejects anything out of range — the API protects itself regardless of the client.
 
 ---
 
