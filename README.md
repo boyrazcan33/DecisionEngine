@@ -125,8 +125,6 @@ Credit score is calculated as:
 credit score = (credit modifier / loan amount) * loan period
 ```
 
-If the score is below 1, the engine extends the period up to 60 months and recalculates. If the maximum amount exceeds €10000, the cap is applied and the shortest possible period to reach €10000 is returned.
-
 If the applicant has existing debt, the request is rejected immediately.
 
 ---
@@ -138,9 +136,46 @@ If the applicant has existing debt, the request is rejected immediately.
 The assignment states:
 > *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
 
-This means the requested amount is irrelevant to the decision — we always calculate the maximum approvable amount. For example, a customer requests €4000 for 12 months with a credit modifier of 100. We could have offered €2000 over 20 months or €4000 over 40 months, but the assignment asks for the maximum sum — so we fix the period at 60 months and return €6000.
+And the scoring rule is:
+> *"If the result is larger or equal than 1 then we would approve this sum."*
 
-For customers where the maximum exceeds €10000 (e.g. credit modifier 1000): `1000 * 60 = €60000` exceeds the cap. We apply the €10000 limit and find the shortest period to reach it — in this case 12 months (`1000 * 12 = 12000 > 10000`). This is better for both the customer (shorter debt) and the bank (faster return).
+A naive implementation would stop as soon as the score hits 1. For example, a customer with modifier 100 requests €4000 for 12 months:
+```
+(100 / 4000) * 12 = 0.3 → score < 1 → rejected
+```
+
+A common next step would be to loop through periods or amounts until score hits 1:
+- €2000 over 20 months: `(100 / 2000) * 20 = 1.0` → approved, return €2000, 20 months
+- or €4000 over 40 months: `(100 / 4000) * 40 = 1.0` → approved, return €4000, 40 months
+
+Both are technically correct but both violate the assignment's core requirement. The assignment explicitly states:
+> *"The idea of the decision engine is to determine what would be the maximum sum, regardless of the person requested loan amount."*
+
+Even a score of 1.25 is not enough to stop. For example, a customer with modifier 100 requests €2000 for 25 months:
+```
+(100 / 2000) * 25 = 1.25 → score >= 1 → approved → return €2000, 25 months
+```
+
+This is technically approved but still wrong — the customer could have received more. The engine must always find the **maximum**, not just any approvable amount.
+
+The scoring formula can be simplified algebraically:
+```
+(modifier / amount) * period >= 1
+→ amount <= modifier * period
+```
+
+This means the maximum approvable amount for any given period is `modifier * period`. To maximize the amount, we maximize the period — always using 60 months (MAX_PERIOD).
+
+**The engine therefore always calculates the maximum potential at 60 months, regardless of what the customer requested:**
+
+1. **Full potential:** Always calculate `modifier * 60`
+2. **Cap check:** If the result exceeds €10000, apply the cap and find the shortest period to reach €10000 — better for the customer (less time in debt) and the bank (faster return)
+3. **Optimum:** If the result is between €2000–€10000, return that amount at 60 months
+4. **Floor check:** If even 60 months yields less than €2000, reject
+
+**Why not use the formula directly to compute the shortest period mathematically (O(1))?**
+
+The formula `ceil(10000 / modifier)` would give the shortest period in one step. However, this requires a division operation and a `double` cast. In banking systems, floating-point arithmetic (`double`, `float`) is strictly avoided due to precision loss — `0.1 + 0.2 = 0.30000000000000004` in binary. The correct approach requires `BigDecimal` with explicit rounding strategies, which adds complexity and reduces readability. The `for` loop operates entirely on `int` values, is mathematically safe, readable to non-engineers, and runs in microseconds — making it the right trade-off.
 
 **Why Vanilla TypeScript instead of a framework?**
 The task required a simple form with a single API call. Introducing a framework like Vue.js or Angular would have been over-engineering for this scope. Vanilla TypeScript keeps the frontend minimal, readable, and appropriate for the problem size.

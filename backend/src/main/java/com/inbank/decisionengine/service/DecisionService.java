@@ -40,60 +40,45 @@ public class DecisionService {
     }
 
     private LoanResponse findBestLoan(int creditModifier, int requestedPeriod) {
-        int maxAmountForRequestedPeriod = creditModifier * requestedPeriod;
+        // IMPORTANT: The assignment strictly dictates finding the "maximum sum, regardless of requested amount".
+        // Instead of a naive loop that stops at the first valid score (which yields a sub-optimal loan),
+        // we mathematically maximize the potential by directly evaluating the MAX_PERIOD (60 months).
+        // See 'Thought Process' in README for the detailed breakdown.
 
-        // Requested period already exceeds 10000
-        if (maxAmountForRequestedPeriod > MAX_AMOUNT) {
-            int shortestPeriod = findShortestPeriodForMaxAmount(creditModifier);
-            return LoanResponse.builder()
-                    .approved(true)
-                    .approvedAmount(MAX_AMOUNT)
-                    .approvedPeriod(shortestPeriod)
-                    .message("Loan approved.")
-                    .build();
-        }
+        int maxPotential = creditModifier * MAX_PERIOD;
 
-        // Requested period gives a valid amount
-        if (maxAmountForRequestedPeriod >= MIN_AMOUNT) {
+        // Floor check — reject if even MAX_PERIOD cannot reach MIN_AMOUNT
+        if (maxPotential < MIN_AMOUNT) {
             return LoanResponse.builder()
-                    .approved(true)
-                    .approvedAmount(maxAmountForRequestedPeriod)
+                    .approved(false)
+                    .approvedAmount(0)
                     .approvedPeriod(requestedPeriod)
-                    .message("Loan approved.")
+                    .message("No suitable loan found.")
                     .build();
         }
 
-        // Amount too low for requested period, extend to MAX_PERIOD
-        int maxAmountAtMaxPeriod = creditModifier * MAX_PERIOD;
-
-        if (maxAmountAtMaxPeriod > MAX_AMOUNT) {
+        // Cap check — if MAX_PERIOD exceeds 10000, find shortest period to reach the cap
+        if (maxPotential > MAX_AMOUNT) {
             int shortestPeriod = findShortestPeriodForMaxAmount(creditModifier);
             return LoanResponse.builder()
                     .approved(true)
                     .approvedAmount(MAX_AMOUNT)
                     .approvedPeriod(shortestPeriod)
-                    .message("Loan approved with adjusted period.")
+                    .message("Loan approved.")
                     .build();
         }
 
-        if (maxAmountAtMaxPeriod >= MIN_AMOUNT) {
-            return LoanResponse.builder()
-                    .approved(true)
-                    .approvedAmount(maxAmountAtMaxPeriod)
-                    .approvedPeriod(MAX_PERIOD)
-                    .message("Loan approved with adjusted period.")
-                    .build();
-        }
-
+        // Optimum — return maximum potential at MAX_PERIOD
         return LoanResponse.builder()
-                .approved(false)
-                .approvedAmount(0)
-                .approvedPeriod(requestedPeriod)
-                .message("No suitable loan found.")
+                .approved(true)
+                .approvedAmount(maxPotential)
+                .approvedPeriod(MAX_PERIOD)
+                .message("Loan approved.")
                 .build();
     }
 
     private int findShortestPeriodForMaxAmount(int creditModifier) {
+        // Loop operates on int only — avoids floating-point precision risks (no BigDecimal needed)
         for (int period = MIN_PERIOD; period <= MAX_PERIOD; period++) {
             if (creditModifier * period >= MAX_AMOUNT) {
                 return period;
