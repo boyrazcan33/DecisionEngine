@@ -40,14 +40,8 @@ public class DecisionService {
     }
 
     private LoanResponse findBestLoan(int creditModifier, int requestedPeriod) {
-        // IMPORTANT: The assignment strictly dictates finding the "maximum sum, regardless of requested amount".
-        // Instead of a naive loop that stops at the first valid score (which yields a sub-optimal loan),
-        // we mathematically maximize the potential by directly evaluating the MAX_PERIOD (60 months).
-        // See 'Thought Process' in README for the detailed breakdown.
-
         int maxPotential = creditModifier * MAX_PERIOD;
 
-        // Floor check — reject if even MAX_PERIOD cannot reach MIN_AMOUNT
         if (maxPotential < MIN_AMOUNT) {
             return LoanResponse.builder()
                     .approved(false)
@@ -57,34 +51,21 @@ public class DecisionService {
                     .build();
         }
 
-        // Cap check — if MAX_PERIOD exceeds 10000, find shortest period to reach the cap
         if (maxPotential > MAX_AMOUNT) {
-            int shortestPeriod = findShortestPeriodForMaxAmount(creditModifier);
             return LoanResponse.builder()
                     .approved(true)
                     .approvedAmount(MAX_AMOUNT)
-                    .approvedPeriod(shortestPeriod)
+                    .approvedPeriod(requestedPeriod)
                     .message("Loan approved.")
                     .build();
         }
 
-        // Optimum — return maximum potential at MAX_PERIOD
         return LoanResponse.builder()
                 .approved(true)
                 .approvedAmount(maxPotential)
                 .approvedPeriod(MAX_PERIOD)
                 .message("Loan approved.")
                 .build();
-    }
-
-    private int findShortestPeriodForMaxAmount(int creditModifier) {
-        // Loop operates on int only — avoids floating-point precision risks (no BigDecimal needed)
-        for (int period = MIN_PERIOD; period <= MAX_PERIOD; period++) {
-            if (creditModifier * period >= MAX_AMOUNT) {
-                return period;
-            }
-        }
-        return MAX_PERIOD;
     }
 
     private int getCreditModifier(String personalCode) {

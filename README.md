@@ -15,7 +15,6 @@ A reasonable interpretation of the assignment might lead to the following approa
 From this sentence, one could argue: first try the requested period, find the maximum amount there, and only extend the period if no suitable amount is found.
 
 For example, if the credit modifier is 100 and the customer requests 20 months:
-
 ```
 (100 / 2000) * 20 = 1.0 → approved → return €2000 at 20 months
 ```
@@ -72,13 +71,13 @@ This means the maximum approvable amount for any given period is `modifier * per
 **The engine therefore always calculates the maximum potential at 60 months, regardless of what the customer requested:**
 
 1. **Full potential:** Always calculate `modifier * 60`
-2. **Cap check:** If the result exceeds €10000, apply the cap and find the shortest period to reach €10000 — better for the customer (less time in debt) and the bank (faster return)
+2. **Cap check:** If the result exceeds €10000, cap the amount at €10000 and keep the customer's requested period — since the maximum sum is already determined, there is no reason to override their preference
 3. **Optimum:** If the result is between €2000–€10000, return that amount at 60 months
 4. **Floor check:** If even 60 months yields less than €2000, reject
 
-**Why not use the formula directly to compute the shortest period mathematically (O(1))?**
+**Why keep the customer's requested period in the cap scenario?**
 
-The formula `ceil(10000 / modifier)` would give the shortest period in one step. However, this requires a division operation and a `double` cast. In banking systems, floating-point arithmetic (`double`, `float`) is strictly avoided due to precision loss — `0.1 + 0.2 = 0.30000000000000004` in binary. The correct approach requires `BigDecimal` with explicit rounding strategies, which adds complexity and reduces readability. The `for` loop operates entirely on `int` values, is mathematically safe, readable to non-engineers, and runs in microseconds — making it the right trade-off.
+When the maximum potential exceeds €10000, the approved amount is capped at €10000 regardless of the period. Since extending or shortening the period does not change the approved sum, the customer's original period preference is preserved. Overriding it would serve no purpose — there is no interest rate or repayment calculation in the assignment, so a shorter period offers no financial advantage to either party.
 
 **Why Vanilla TypeScript instead of a framework?**
 The task required a simple form with a single API call. Introducing a framework like Vue.js or Angular would have been over-engineering for this scope. Vanilla TypeScript keeps the frontend minimal, readable, and appropriate for the problem size.

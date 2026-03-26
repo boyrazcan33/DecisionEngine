@@ -46,27 +46,11 @@ class DecisionServiceTest {
     }
 
     @Test
-    void shouldExtendToShortestPeriodWhenMaxPotentialExceedsLimit() {
+    void shouldCapAtMaxAmountAndKeepRequestedPeriod() {
         // creditModifier=300, 300*60=18000 > 10000 → cap at 10000
-        // shortest period: 300*34=10200 >= 10000 → period=34
+        // keep requested period (12) since max sum is already found
         LoanRequest request = new LoanRequest();
         request.setPersonalCode("49002010987");
-        request.setLoanAmount(2000);
-        request.setLoanPeriod(12);
-
-        LoanResponse response = decisionService.decide(request);
-
-        assertTrue(response.isApproved());
-        assertEquals(10000, response.getApprovedAmount());
-        assertEquals(34, response.getApprovedPeriod());
-    }
-
-    @Test
-    void shouldExtendToShortestPeriodForHighModifierSegment() {
-        // creditModifier=1000, 1000*60=60000 > 10000 → cap at 10000
-        // shortest period: 1000*12=12000 >= 10000 → period=12
-        LoanRequest request = new LoanRequest();
-        request.setPersonalCode("49002010998");
         request.setLoanAmount(2000);
         request.setLoanPeriod(12);
 
@@ -78,10 +62,23 @@ class DecisionServiceTest {
     }
 
     @Test
+    void shouldCapAtMaxAmountAndPreserveCustomerPreferredPeriod() {
+        // creditModifier=1000, 1000*60=60000 > 10000 → cap at 10000
+        // customer requested 36 months → keep 36 months
+        LoanRequest request = new LoanRequest();
+        request.setPersonalCode("49002010998");
+        request.setLoanAmount(2000);
+        request.setLoanPeriod(36);
+
+        LoanResponse response = decisionService.decide(request);
+
+        assertTrue(response.isApproved());
+        assertEquals(10000, response.getApprovedAmount());
+        assertEquals(36, response.getApprovedPeriod());
+    }
+
+    @Test
     void shouldRejectWhenMaxPeriodCannotReachMinimumAmount() {
-        // This would apply to a modifier so low that even 60 months yields less than 2000
-        // e.g. modifier=30: 30*60=1800 < 2000 → reject
-        // We simulate this by directly testing the boundary
         LoanRequest request = new LoanRequest();
         request.setPersonalCode("49002010965");
         request.setLoanAmount(2000);
