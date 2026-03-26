@@ -40,29 +40,49 @@ public class DecisionService {
     }
 
     private LoanResponse findBestLoan(int creditModifier, int requestedPeriod) {
-        // Try with requested period first, find max approvable amount
-        int maxAmount = calculateMaxAmount(creditModifier, requestedPeriod);
+        int maxAmountForRequestedPeriod = creditModifier * requestedPeriod;
 
-        if (maxAmount >= MIN_AMOUNT) {
+        // Requested period already exceeds 10000
+        if (maxAmountForRequestedPeriod > MAX_AMOUNT) {
+            int shortestPeriod = findShortestPeriodForMaxAmount(creditModifier);
             return LoanResponse.builder()
                     .approved(true)
-                    .approvedAmount(maxAmount)
+                    .approvedAmount(MAX_AMOUNT)
+                    .approvedPeriod(shortestPeriod)
+                    .message("Loan approved.")
+                    .build();
+        }
+
+        // Requested period gives a valid amount
+        if (maxAmountForRequestedPeriod >= MIN_AMOUNT) {
+            return LoanResponse.builder()
+                    .approved(true)
+                    .approvedAmount(maxAmountForRequestedPeriod)
                     .approvedPeriod(requestedPeriod)
                     .message("Loan approved.")
                     .build();
         }
 
-        // If not found, try extending the period
-        for (int period = requestedPeriod + 1; period <= MAX_PERIOD; period++) {
-            maxAmount = calculateMaxAmount(creditModifier, period);
-            if (maxAmount >= MIN_AMOUNT) {
-                return LoanResponse.builder()
-                        .approved(true)
-                        .approvedAmount(maxAmount)
-                        .approvedPeriod(period)
-                        .message("Loan approved with adjusted period.")
-                        .build();
-            }
+        // Amount too low for requested period, extend to MAX_PERIOD
+        int maxAmountAtMaxPeriod = creditModifier * MAX_PERIOD;
+
+        if (maxAmountAtMaxPeriod > MAX_AMOUNT) {
+            int shortestPeriod = findShortestPeriodForMaxAmount(creditModifier);
+            return LoanResponse.builder()
+                    .approved(true)
+                    .approvedAmount(MAX_AMOUNT)
+                    .approvedPeriod(shortestPeriod)
+                    .message("Loan approved with adjusted period.")
+                    .build();
+        }
+
+        if (maxAmountAtMaxPeriod >= MIN_AMOUNT) {
+            return LoanResponse.builder()
+                    .approved(true)
+                    .approvedAmount(maxAmountAtMaxPeriod)
+                    .approvedPeriod(MAX_PERIOD)
+                    .message("Loan approved with adjusted period.")
+                    .build();
         }
 
         return LoanResponse.builder()
@@ -73,11 +93,13 @@ public class DecisionService {
                 .build();
     }
 
-    private int calculateMaxAmount(int creditModifier, int period) {
-        // credit score = (creditModifier / amount) * period >= 1
-        // solving for amount: amount <= creditModifier * period
-        int maxAmount = creditModifier * period;
-        return Math.min(maxAmount, MAX_AMOUNT);
+    private int findShortestPeriodForMaxAmount(int creditModifier) {
+        for (int period = MIN_PERIOD; period <= MAX_PERIOD; period++) {
+            if (creditModifier * period >= MAX_AMOUNT) {
+                return period;
+            }
+        }
+        return MAX_PERIOD;
     }
 
     private int getCreditModifier(String personalCode) {

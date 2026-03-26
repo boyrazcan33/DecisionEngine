@@ -21,7 +21,7 @@ class DecisionServiceTest {
     void shouldRejectLoanForPersonWithDebt() {
         LoanRequest request = new LoanRequest();
         request.setPersonalCode("49002010965");
-        request.setLoanAmount(4000);
+        request.setLoanAmount(2000);
         request.setLoanPeriod(12);
 
         LoanResponse response = decisionService.decide(request);
@@ -30,21 +30,56 @@ class DecisionServiceTest {
     }
 
     @Test
-    void shouldApproveLoanForSegment1() {
+    void shouldExtendToMaxPeriodForSegment1() {
+        // creditModifier=100, period=12 → 100*12=1200 < 2000
+        // extend to MAX_PERIOD: 100*60=6000 >= 2000
         LoanRequest request = new LoanRequest();
         request.setPersonalCode("49002010976");
-        request.setLoanAmount(4000);
+        request.setLoanAmount(2000);
+        request.setLoanPeriod(12);
+
+        LoanResponse response = decisionService.decide(request);
+
+        assertTrue(response.isApproved());
+        assertEquals(6000, response.getApprovedAmount());
+        assertEquals(60, response.getApprovedPeriod());
+    }
+
+    @Test
+    void shouldReturnMaxAmountForRequestedPeriodForSegment2() {
+        // creditModifier=300, period=24 → 300*24=7200 < 10000
+        LoanRequest request = new LoanRequest();
+        request.setPersonalCode("49002010987");
+        request.setLoanAmount(2000);
         request.setLoanPeriod(24);
 
         LoanResponse response = decisionService.decide(request);
 
-        // creditModifier=100, period=24 → max=2400 >= 2000
         assertTrue(response.isApproved());
-        assertEquals(2400, response.getApprovedAmount());
+        assertEquals(7200, response.getApprovedAmount());
+        assertEquals(24, response.getApprovedPeriod());
     }
 
     @Test
-    void shouldReturnMaxAmountForSegment3() {
+    void shouldReturnMaxAmountWithShortestPeriodForSegment3() {
+        // creditModifier=1000, period=60 → 1000*60=60000 > 10000
+        // shortest period: 1000*12=12000 > 10000 → period=12
+        LoanRequest request = new LoanRequest();
+        request.setPersonalCode("49002010998");
+        request.setLoanAmount(2000);
+        request.setLoanPeriod(60);
+
+        LoanResponse response = decisionService.decide(request);
+
+        assertTrue(response.isApproved());
+        assertEquals(10000, response.getApprovedAmount());
+        assertEquals(12, response.getApprovedPeriod());
+    }
+
+    @Test
+    void shouldReturnMaxAmountWithShortestPeriodWhenRequestedPeriodExceedsCap() {
+        // creditModifier=1000, period=12 → 1000*12=12000 > 10000
+        // shortest period: 12
         LoanRequest request = new LoanRequest();
         request.setPersonalCode("49002010998");
         request.setLoanAmount(2000);
@@ -52,24 +87,9 @@ class DecisionServiceTest {
 
         LoanResponse response = decisionService.decide(request);
 
-        // creditModifier=1000, period=12 → max=10000
         assertTrue(response.isApproved());
         assertEquals(10000, response.getApprovedAmount());
-    }
-
-    @Test
-    void shouldExtendPeriodWhenAmountNotFound() {
-        LoanRequest request = new LoanRequest();
-        request.setPersonalCode("49002010976");
-        request.setLoanAmount(4000);
-        request.setLoanPeriod(12);
-
-        LoanResponse response = decisionService.decide(request);
-
-        // creditModifier=100, period=12 → max=1200 < 2000, should extend period
-        // period=20 → max=2000 >= 2000
-        assertTrue(response.isApproved());
-        assertTrue(response.getApprovedPeriod() > 12);
+        assertEquals(12, response.getApprovedPeriod());
     }
 
     @Test
@@ -78,6 +98,16 @@ class DecisionServiceTest {
         request.setPersonalCode("49002010976");
         request.setLoanAmount(500);
         request.setLoanPeriod(12);
+
+        assertThrows(InvalidLoanRequestException.class, () -> decisionService.decide(request));
+    }
+
+    @Test
+    void shouldThrowExceptionForInvalidPeriod() {
+        LoanRequest request = new LoanRequest();
+        request.setPersonalCode("49002010976");
+        request.setLoanAmount(4000);
+        request.setLoanPeriod(6);
 
         assertThrows(InvalidLoanRequestException.class, () -> decisionService.decide(request));
     }
